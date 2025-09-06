@@ -236,18 +236,44 @@ class Settings:
         
     def _load_env_config(self):
         """从环境变量加载配置"""
-        # 示例：RAG_DEBUG=true
-        if os.getenv("RAG_DEBUG", "").lower() == "true":
-            self.config["system"]["debug"] = True
+        # RAG_DEBUG=true/false
+        debug_env = os.getenv("RAG_DEBUG", "").lower()
+        if debug_env in ["true", "false"]:
+            self.config["system"]["debug"] = debug_env == "true"
             
-        # 示例：RAG_LOG_LEVEL=DEBUG
+        # RAG_LOG_LEVEL=DEBUG/INFO/WARNING/ERROR
         if os.getenv("RAG_LOG_LEVEL"):
-            self.config["system"]["log_level"] = os.getenv("RAG_LOG_LEVEL")
+            self.config["system"]["log_level"] = os.getenv("RAG_LOG_LEVEL").upper()
             
-        # 示例：RAG_DENSE_WEIGHT=0.8
+        # RAG_DENSE_WEIGHT=0.7（稠密检索权重）
         if os.getenv("RAG_DENSE_WEIGHT"):
             try:
-                self.config["hybrid_retrieval"]["dense_weight"] = float(os.getenv("RAG_DENSE_WEIGHT"))
+                dense_weight = float(os.getenv("RAG_DENSE_WEIGHT"))
+                self.config["hybrid_retrieval"]["dense_weight"] = dense_weight
+                # 自动计算稀疏权重
+                self.config["hybrid_retrieval"]["sparse_weight"] = 1.0 - dense_weight
+            except ValueError:
+                pass
+                
+        # RAG_QUALITY_THRESHOLD=0.6（质量阈值）
+        if os.getenv("RAG_QUALITY_THRESHOLD"):
+            try:
+                self.config["cot"]["quality_threshold"] = float(os.getenv("RAG_QUALITY_THRESHOLD"))
+                self.config["quality"]["quality_threshold"] = float(os.getenv("RAG_QUALITY_THRESHOLD"))
+            except ValueError:
+                pass
+                
+        # RAG_MODEL_NAME=模型名称（重排序模型）
+        if os.getenv("RAG_MODEL_NAME"):
+            self.config["reranker"]["model_name"] = os.getenv("RAG_MODEL_NAME")
+            
+        # RAG_BATCH_SIZE=8（批处理大小）
+        if os.getenv("RAG_BATCH_SIZE"):
+            try:
+                batch_size = int(os.getenv("RAG_BATCH_SIZE"))
+                self.config["reranker"]["batch_size"] = batch_size
+                for data_type in ["text", "image", "table"]:
+                    self.config["queue"][data_type]["batch_size"] = batch_size
             except ValueError:
                 pass
                 

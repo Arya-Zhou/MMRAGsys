@@ -9,6 +9,14 @@ import time
 from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 
+# 导入向量化模型
+try:
+    from sentence_transformers import SentenceTransformer
+    ENCODER_AVAILABLE = True
+except ImportError:
+    ENCODER_AVAILABLE = False
+    logger.warning("sentence-transformers未安装，将使用随机向量")
+
 # 导入核心组件
 from core.hybrid_store import HybridVectorStore, Document
 from core.document_tracker import DocumentTracker
@@ -56,10 +64,40 @@ class RAGSystem:
             for key, value in config.items():
                 settings.set(key, value)
                 
+        # 初始化向量编码器
+        self._init_encoder()
+                
         # 初始化组件
         self._init_components()
         
         logger.info("RAG系统初始化完成")
+        
+    def _init_encoder(self):
+        """初始化向量编码器"""
+        if ENCODER_AVAILABLE:
+            try:
+                self.encoder = SentenceTransformer('BAAI/bge-base-zh-v1.5')
+                logger.info("成功加载向量编码器: BAAI/bge-base-zh-v1.5")
+            except Exception as e:
+                logger.warning(f"向量编码器加载失败: {e}, 将使用随机向量")
+                self.encoder = None
+        else:
+            self.encoder = None
+            
+    def encode_text(self, text: str) -> np.ndarray:
+        """
+        对文本进行向量编码
+        Args:
+            text: 文本内容
+        Returns:
+            向量表示
+        """
+        if self.encoder is not None:
+            return self.encoder.encode(text)
+        else:
+            # 使用随机向量作为fallback
+            np.random.seed(hash(text) % (2**32))
+            return np.random.randn(768)
         
     def _init_components(self):
         """初始化所有组件"""
@@ -165,10 +203,16 @@ class RAGSystem:
         """
         doc_objects = []
         for doc_data in documents:
+            # 如果没有提供embedding，自动生成
+            embedding = doc_data.get("embedding")
+            if embedding is None:
+                content = doc_data.get("content", "")
+                embedding = self.encode_text(content)
+                
             doc = Document(
                 id=doc_data.get("id", ""),
                 content=doc_data.get("content", ""),
-                embedding=doc_data.get("embedding"),
+                embedding=embedding,
                 metadata=doc_data.get("metadata", {}),
                 source_file=doc_data.get("source_file"),
                 page_number=doc_data.get("page_number")
@@ -196,6 +240,10 @@ class RAGSystem:
         start_time = time.time()
         
         try:
+            # 如果没有提供查询向量，自动生成
+            if query_embedding is None:
+                query_embedding = self.encode_text(query)
+                
             # 检查缓存
             cached_result = self.cache_manager.get(query, query_embedding)
             if cached_result:
@@ -565,30 +613,29 @@ def main():
     # 创建RAG系统实例
     rag_system = RAGSystem()
     
-    # 示例：添加文档
+    # 示例：添加文档（现在会自动生成向量）
     sample_documents = [
         {
             "id": "doc1",
             "content": "北京是中华人民共和国的首都，是中国的政治、文化中心。",
             "source_file": "china.pdf",
-            "page_number": 1,
-            "embedding": np.random.randn(768)  # 示例向量
+            "page_number": 1
+            # 不再需要手动提供embedding，系统会自动生成
         },
         {
             "id": "doc2",
             "content": "人工智能是计算机科学的一个分支，致力于创建智能机器。",
-            "source_file": "ai.pdf",
-            "page_number": 5,
-            "embedding": np.random.randn(768)
+            "source_file": "ai.pdf", 
+            "page_number": 5
         }
     ]
     
     rag_system.add_documents(sample_documents)
     
-    # 示例：查询
+    # 示例：查询（现在会自动生成查询向量）
     result = rag_system.query(
-        query="北京是哪个国家的首都？",
-        query_embedding=np.random.randn(768)
+        query="北京是哪个国家的首都？"
+        # 不再需要手动提供query_embedding，系统会自动生成
     )
     
     print(json.dumps(result, ensure_ascii=False, indent=2))
