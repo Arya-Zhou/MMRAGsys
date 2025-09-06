@@ -40,6 +40,9 @@ from monitor.degradation import DegradationManager, SystemMetrics
 # 导入配置
 from config.settings import settings
 
+# 导入数据加载器
+from data.mineru_loader import MinIODataLoader
+
 # 配置日志
 logging.basicConfig(
     level=getattr(logging, settings.get("system.log_level", "INFO")),
@@ -69,6 +72,9 @@ class RAGSystem:
                 
         # 初始化组件
         self._init_components()
+        
+        # 初始化数据加载器
+        self.mineru_loader = MinIODataLoader()
         
         logger.info("RAG系统初始化完成")
         
@@ -221,6 +227,90 @@ class RAGSystem:
             
         self.hybrid_store.add_documents(doc_objects)
         logger.info(f"添加了 {len(documents)} 个文档")
+        
+    def add_documents_from_mineru(self, 
+                                 json_file_path: str,
+                                 images_dir: Optional[str] = None,
+                                 base_path: str = "") -> int:
+        """
+        从MinIO解析结果添加文档
+        Args:
+            json_file_path: JSON文件路径
+            images_dir: 图像目录路径
+            base_path: 基础路径
+        Returns:
+            添加的文档数量
+        """
+        logger.info(f"从MinIO数据加载文档: {json_file_path}")
+        
+        # 设置数据加载器的基础路径
+        if base_path:
+            self.mineru_loader = MinIODataLoader(base_path)
+        
+        # 加载文档
+        documents = self.mineru_loader.load_document(json_file_path, images_dir)
+        
+        if not documents:
+            logger.warning("未加载到任何文档")
+            return 0
+            
+        # 转换为系统格式并添加向量
+        doc_objects = []
+        for doc_data in documents:
+            # 自动生成向量
+            embedding = self.encode_text(doc_data["content"])
+            
+            doc = Document(
+                id=doc_data["id"],
+                content=doc_data["content"],
+                embedding=embedding,
+                metadata=doc_data.get("metadata", {}),
+                source_file=doc_data.get("source_file"),
+                page_number=doc_data.get("page_number")
+            )
+            doc_objects.append(doc)
+            
+        # 添加到系统
+        self.hybrid_store.add_documents(doc_objects)
+        
+        # 获取统计信息
+        stats = self.mineru_loader.get_document_statistics(documents)
+        logger.info(f"MinIO数据加载完成: {stats}")
+        
+        return len(documents)
+        
+    def batch_load_mineru_documents(self,
+                                   json_files: List[str],
+                                   images_dirs: Optional[List[str]] = None,
+                                   base_path: str = "") -> int:
+        """
+        批量加载MinIO解析的文档
+        Args:
+            json_files: JSON文件路径列表
+            images_dirs: 图像目录列表
+            base_path: 基础路径
+        Returns:
+            总共添加的文档数量
+        """
+        logger.info(f"批量加载MinIO文档: {len(json_files)} 个文件")
+        
+        if base_path:
+            self.mineru_loader = MinIODataLoader(base_path)
+            
+        total_added = 0
+        
+        for i, json_file in enumerate(json_files):
+            images_dir = images_dirs[i] if images_dirs and i < len(images_dirs) else None
+            count = self.add_documents_from_mineru(
+                json_file_path=json_file,
+                images_dir=images_dir,
+                base_path=""  # 已经设置了base_path
+            )
+            total_added += count
+            logger.info(f"文件 {i+1}/{len(json_files)} 处理完成，添加 {count} 个文档项")
+            
+        logger.info(f"批量加载完成，总计添加 {total_added} 个文档项")
+        return total_added
         
     def query(self, 
              query: str,
@@ -613,14 +703,14 @@ def main():
     # 创建RAG系统实例
     rag_system = RAGSystem()
     
-    # 示例：添加文档（现在会自动生成向量）
+    # 演示1：使用示例数据（原有功能）
+    print("=== 演示1: 手动添加文档 ===")
     sample_documents = [
         {
             "id": "doc1",
             "content": "北京是中华人民共和国的首都，是中国的政治、文化中心。",
             "source_file": "china.pdf",
             "page_number": 1
-            # 不再需要手动提供embedding，系统会自动生成
         },
         {
             "id": "doc2",
@@ -632,18 +722,62 @@ def main():
     
     rag_system.add_documents(sample_documents)
     
-    # 示例：查询（现在会自动生成查询向量）
-    result = rag_system.query(
-        query="北京是哪个国家的首都？"
-        # 不再需要手动提供query_embedding，系统会自动生成
-    )
-    
+    # 查询测试
+    result = rag_system.query("北京是哪个国家的首都？")
+    print("查询结果:")
     print(json.dumps(result, ensure_ascii=False, indent=2))
     
+    # 演示2：加载MinIO数据（如果存在）
+    print("\n=== 演示2: MinIO数据加载 ===")
+    
+    # 检查是否有示例数据
+    import os
+    data_example_path = "../data_example"
+    json_file = "艾力斯-公司深度报告商业化成绩显著产品矩阵持续拓宽-25070718页_content_list.json"
+    
+    if os.path.exists(os.path.join(data_example_path, json_file)):
+        print("发现MinIO示例数据，正在加载...")
+        
+        # 加载MinIO数据
+        count = rag_system.add_documents_from_mineru(
+            json_file_path=json_file,
+            base_path=data_example_path
+        )
+        
+        print(f"成功加载 {count} 个MinIO文档项")
+        
+        # 测试查询MinIO数据
+        mineru_queries = [
+            "艾力斯公司的主要业务是什么？",
+            "伏美替尼的特点有哪些？",
+            "公司的投资建议是什么？"
+        ]
+        
+        for query in mineru_queries:
+            print(f"\n查询: {query}")
+            result = rag_system.query(query)
+            print(f"答案: {result['answer'][:100]}...")
+            print(f"来源: {result['source_file']}, 页码: {result['page_number']}")
+            
+    else:
+        print("未找到MinIO示例数据，跳过演示2")
+        print(f"请确保数据位于: {os.path.abspath(data_example_path)}")
+    
     # 获取统计信息
+    print("\n=== 系统统计信息 ===")
     stats = rag_system.get_statistics()
-    print("\n系统统计信息:")
-    print(json.dumps(stats, ensure_ascii=False, indent=2))
+    
+    # 显示关键统计
+    if 'queue' in stats and 'processing_stats' in stats['queue']:
+        print("队列处理统计:")
+        for data_type, stat in stats['queue']['processing_stats'].items():
+            if stat['processed'] > 0:
+                print(f"  {data_type}: 处理 {stat['processed']} 个，平均时间 {stat['avg_time']:.3f}s")
+    
+    if 'cache' in stats:
+        for cache_type, cache_stat in stats['cache'].items():
+            if isinstance(cache_stat, dict) and 'hit_rate' in cache_stat:
+                print(f"{cache_type} 缓存命中率: {cache_stat['hit_rate']:.2%}")
     
     # 关闭系统
     rag_system.shutdown()

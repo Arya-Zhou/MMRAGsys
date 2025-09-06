@@ -20,6 +20,83 @@ from main import RAGSystem
 import json
 
 
+def demo_mineru_data():
+    """MinIO数据演示"""
+    print("=== RAG系统MinIO数据演示 ===")
+    
+    # 创建系统
+    rag = RAGSystem()
+    
+    # 检查示例数据
+    import os
+    data_example_path = "../data_example"
+    json_file = "艾力斯-公司深度报告商业化成绩显著产品矩阵持续拓宽-25070718页_content_list.json"
+    
+    if not os.path.exists(os.path.join(data_example_path, json_file)):
+        print("❌ 未找到MinIO示例数据")
+        print(f"请确保数据位于: {os.path.abspath(data_example_path)}")
+        return
+    
+    print("✅ 发现MinIO示例数据，正在加载...")
+    
+    # 加载MinIO数据
+    count = rag.add_documents_from_mineru(
+        json_file_path=json_file,
+        base_path=data_example_path
+    )
+    
+    print(f"📊 成功加载 {count} 个文档项")
+    
+    # 测试不同类型的查询
+    test_queries = [
+        {"query": "艾力斯公司的主要业务是什么？", "type": "事实查询"},
+        {"query": "伏美替尼有哪些优势和特点？", "type": "特征描述"},
+        {"query": "公司2025年的业绩预测如何？", "type": "数据查询"},
+        {"query": "分析公司的投资价值", "type": "分析推理"},
+        {"query": "公司面临的主要风险有哪些？", "type": "风险分析"}
+    ]
+    
+    print("\n🔍 开始测试查询...")
+    
+    for i, item in enumerate(test_queries, 1):
+        query = item["query"]
+        query_type = item["type"]
+        
+        print(f"\n📝 查询 {i} ({query_type}): {query}")
+        
+        try:
+            result = rag.query(query)
+            
+            print("✅ 查询结果:")
+            answer = result['answer']
+            # 检查是否使用了CoT
+            if "Step1:" in answer:
+                print("  🧠 使用了CoT推理")
+                # 只显示结论部分
+                if "最终答案" in answer:
+                    final_answer = answer.split("最终答案")[-1].strip(": ")
+                    print(f"  📝 答案: {final_answer[:150]}...")
+                else:
+                    print(f"  📝 答案: {answer[:150]}...")
+            else:
+                print(f"  📝 答案: {answer[:150]}...")
+                
+            print(f"  📚 来源: {result['source_file']}")
+            print(f"  📄 页码: {result['page_number']}")
+            
+        except Exception as e:
+            print(f"❌ 查询失败: {e}")
+    
+    # 显示数据统计
+    print("\n📊 数据加载统计:")
+    # 这里可以展示不同类型数据的统计
+    
+    # 关闭系统
+    print("\n正在关闭系统...")
+    rag.shutdown()
+    print("演示完成！")
+
+
 def demo_basic_usage():
     """基础使用演示"""
     print("=== RAG系统基础使用演示 ===")
@@ -148,8 +225,8 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description='RAG系统启动器')
-    parser.add_argument('--mode', choices=['demo', 'interactive'], default='demo',
-                       help='运行模式: demo(演示模式) 或 interactive(交互模式)')
+    parser.add_argument('--mode', choices=['demo', 'interactive', 'mineru'], default='demo',
+                       help='运行模式: demo(演示模式)、interactive(交互模式) 或 mineru(MinIO数据演示)')
     parser.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], 
                        default='INFO', help='日志级别')
     
@@ -166,6 +243,8 @@ def main():
         demo_basic_usage()
     elif args.mode == 'interactive':
         interactive_mode()
+    elif args.mode == 'mineru':
+        demo_mineru_data()
 
 
 if __name__ == "__main__":
