@@ -5,19 +5,19 @@
 
 import re
 import jieba
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Any, Tuple, Optional
 import numpy as np
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 class ComplexityDetector:
     """复杂度检测器"""
     
     def __init__(self):
         """初始化复杂度检测器"""
+    
         
         # 复杂度权重配置
         self.complexity_weights = {
@@ -44,7 +44,6 @@ class ComplexityDetector:
             "规划": 0.9,
             
             # 中等复杂度指示词 (0.4-0.7)
-            "解释": 0.6,
             "描述": 0.5,
             "说明": 0.5,
             "列出": 0.4,
@@ -318,7 +317,7 @@ class ComplexityDetector:
             是否包含具体实体
         """
         # 检查是否包含引号（通常标记具体实体）
-        if '"' in query or "'" in query or """ in query:
+        if '"' in query or "'" in query or '"""' in query:
             return True
             
         # 检查是否包含专有名词特征
