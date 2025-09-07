@@ -3,7 +3,7 @@
 """
 
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 # 基础配置
 BASE_CONFIG = {

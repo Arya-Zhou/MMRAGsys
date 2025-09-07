@@ -29,7 +29,7 @@ def demo_mineru_data():
     
     # 检查示例数据
     import os
-    data_example_path = "../data_example"
+    data_example_path = "../data_base_json_content/艾力斯-公司深度报告商业化成绩显著产品矩阵持续拓宽-25070718页/艾力斯-公司深度报告商业化成绩显著产品矩阵持续拓宽-25070718页/auto"
     json_file = "艾力斯-公司深度报告商业化成绩显著产品矩阵持续拓宽-25070718页_content_list.json"
     
     if not os.path.exists(os.path.join(data_example_path, json_file)):

@@ -221,6 +221,72 @@ python mineru_tool.py analyze ../data_example/艾力斯-公司深度报告商业
 - [x] Phase 2: 重排序集成
 - [x] Phase 3: CoT推理链
 - [x] Phase 4: 系统集成优化
+- [x] Phase 5: MinIO数据支持
+- [x] Phase 6: 批量处理和监控
+
+## 下一步推进
+
+### 1. 批量处理132个PDF文件
+
+使用批量处理工具管理大规模数据：
+
+```bash
+# 扫描并注册所有PDF文件
+python batch_process.py scan /path/to/your/132_pdfs
+
+# 批量加载所有文档
+python batch_process.py load /path/to/your/132_pdfs --batch-size 10
+
+# 恢复中断的加载
+python batch_process.py load /path/to/your/132_pdfs --resume
+
+# 检查加载状态
+python batch_process.py status
+
+# 测试查询
+python batch_process.py test "你的查询问题"
+```
+
+### 2. 性能监控
+
+系统包含实时监控功能：
+
+```python
+from monitor.dashboard import DashboardServer
+
+# 创建监控仪表板
+dashboard = DashboardServer(rag_system)
+
+# 记录查询
+dashboard.record_query(query, result, processing_time, success)
+
+# 生成HTML仪表板
+dashboard.save_dashboard("dashboard.html")
+
+# 导出指标数据
+dashboard.export_metrics("metrics.json")
+```
+
+### 3. 持久化存储（待实现）
+
+建议实现向量数据库持久化：
+- 使用Faiss或Milvus保存向量索引
+- 使用SQLite存储元数据
+- 实现增量更新机制
+
+### 4. API服务（待实现）
+
+建议封装为REST API：
+- 使用FastAPI构建服务
+- 支持并发查询
+- 实现认证和限流
+
+### 5. 优化建议
+
+- **内存优化**: 实现文档分片加载
+- **查询优化**: 添加查询缓存预热
+- **模型优化**: 支持模型量化和加速
+- **存储优化**: 实现索引压缩
 
 ## 许可证
 

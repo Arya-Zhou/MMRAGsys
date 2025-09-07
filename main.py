@@ -31,7 +31,7 @@ from cot.quality_monitor import QualityMonitor
 from cot.exception_handler import ExceptionHandler, ExceptionLevel
 
 # 导入队列组件
-from queue.manager import QueueManager, DataType
+from task_queue.manager import QueueManager, DataType
 
 # 导入监控组件
 from monitor.metrics import MetricsCollector

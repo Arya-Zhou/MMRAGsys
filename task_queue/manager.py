@@ -538,7 +538,7 @@ class QueueManager:
             },
             "cache_size": len(self.request_cache),
             "resource_allocation": {
-                data_type.value: self.config[data_type.value]["resource_allocation"]
-                for data_type.value in ["text", "image", "table"]
+                value: self.config[value]["resource_allocation"]
+                for value in ["text", "image", "table"]
             }
         }
